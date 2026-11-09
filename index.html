@@ -292,6 +292,24 @@ document.querySelectorAll('#nav button').forEach(function(b){b.onclick=function(
 function val(i){return parseFloat($(i).value)}
 var CRED=[0.0379,0.0798,0.0847,0.0896];
 function credTx(n){n=parseInt(n)||1;return CRED[Math.min(Math.max(n,1),4)-1]}
+function addMes(d,i){var p=d.split('-'),t=(+p[0])*12+(+p[1]-1)+i,y=Math.floor(t/12),m=t%12,
+  last=new Date(y,m+1,0).getDate(),day=Math.min(+p[2],last);
+  return y+'-'+('0'+(m+1)).slice(-2)+'-'+('0'+day).slice(-2)}
+function pushEnt(data,net,gross,n){
+  if(n<=1){push(ref(db,'ent'),data);return}
+  var g=Date.now().toString(36)+Math.random().toString(36).slice(2,6),
+      pn=r2(net/n),pg=r2(gross/n);
+  for(var i=0;i<n;i++){
+    var last=i===n-1;
+    push(ref(db,'ent'),{d:addMes(data.d,i),t:data.t+' ('+(i+1)+'/'+n+')',c:data.c,f:data.f,
+      v:last?r2(net-pn*(n-1)):pn,vb:last?r2(gross-pg*(n-1)):pg,np:n,g:g});
+  }
+}
+function removeGroup(o){
+  if(!o)return;
+  if(!o.g){remove(ref(db,'ent/'+o.id));return}
+  S.ent.filter(function(x){return x.g===o.g}).forEach(function(x){remove(ref(db,'ent/'+x.id))});
+}
 function togglePar(){$('e-pw').style.display=$('e-f').value==='Crédito'?'':'none'}
 $('e-f').onchange=togglePar;togglePar();
 
@@ -300,7 +318,8 @@ window.edit = function(k, id) {
   if(!item) return;
   EDIT_ID[k] = id;
   if(k==='ent') {
-    $('e-d').value=item.d; $('e-t').value=item.t; $('e-c').value=item.c||'Consultas'; $('e-f').value=item.f; $('e-p').value=item.np||1; togglePar(); $('e-v').value=item.vb || item.v;
+    var grp=item.g?S.ent.filter(function(x){return x.g===item.g}):[item];
+    $('e-d').value=grp.reduce(function(m,x){return x.d<m?x.d:m},item.d); $('e-t').value=item.g?item.t.replace(/ \(\d+\/\d+\)$/,''):item.t; $('e-c').value=item.c||'Consultas'; $('e-f').value=item.f; $('e-p').value=item.np||1; togglePar(); $('e-v').value=r2(grp.reduce(function(s,x){return s+(x.vb||x.v)},0));
     $('e-add').innerText='Salvar Edição';
   } else if(k==='sai') {
     $('s-d').value=item.d; $('s-c').value=item.c; $('s-t').value=item.t; $('s-v').value=item.v;
@@ -322,12 +341,13 @@ $('e-add').onclick=function(){
   var tx = f === 'Crédito' ? credTx(np) : (f === 'Débito' ? 0.0199 : 0);
   var net = r2(v * (1 - tx));
   var data = {d:$('e-d').value,t:$('e-t').value||'Recebimento',c:$('e-c').value||'Consultas',f:f,v:net,vb:v,np:np};
+  var orig = EDIT_ID.ent ? S.ent.find(function(x){return x.id===EDIT_ID.ent}) : null;
   if(EDIT_ID.ent) {
-    update(ref(db, 'ent/' + EDIT_ID.ent), data);
+    if(np>1 || (orig && orig.g)){ removeGroup(orig); pushEnt(data,net,v,np); } else { update(ref(db, 'ent/' + EDIT_ID.ent), data); }
     EDIT_ID.ent = null;
     $('e-add').innerText = 'Adicionar Recebimento';
   } else {
-    push(ref(db, 'ent'), data);
+    pushEnt(data,net,v,np);
   }
   $('e-t').value='';$('e-v').value='';$('e-p').value=1;
 };
@@ -377,6 +397,14 @@ $('m-v').onchange=function(){
 };
 
 function del(k,id){
+  if(k==='ent'){
+    var it=S.ent.find(function(x){return x.id===id});
+    if(it&&it.g){
+      if(confirm('Remover TODAS as parcelas deste parcelamento?\n\nOK = todas as parcelas\nCancelar = escolher só esta')){removeGroup(it);return}
+      if(confirm('Remover somente esta parcela?')){remove(ref(db,'ent/'+id))}
+      return;
+    }
+  }
   if(confirm('Apagar este lançamento?')){
     remove(ref(db, k + '/' + id));
   }
