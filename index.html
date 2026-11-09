@@ -158,7 +158,6 @@ section{display:none;animation:fadeIn 0.3s ease}section.on{display:block}
         <label class="f">Serviço<select id="e-c"><option>Consultas</option><option>Cirurgias</option><option>Vacinas</option><option>Outros</option></select></label>
         <label class="f">Forma<select id="e-f"><option>Crédito</option><option>Débito</option><option>Pix</option><option>Dinheiro</option></select></label>
       </div>
-      <label class="f" id="e-pw">Parcelas no crédito<select id="e-p"><option value="1">1x</option><option value="2">2x</option><option value="3">3x</option><option value="4">4x</option></select></label>
     </div>
     <div style="margin-top:16px"><button class="btn" id="e-add">Adicionar Recebimento</button></div>
   </div>
@@ -290,17 +289,13 @@ document.querySelectorAll('#nav button').forEach(function(b){b.onclick=function(
 }});
 
 function val(i){return parseFloat($(i).value)}
-var CRED=[0.0379,0.0798,0.0847,0.0896];
-function credTx(n){n=parseInt(n)||1;return CRED[Math.min(Math.max(n,1),4)-1]}
-function togglePar(){$('e-pw').style.display=$('e-f').value==='Crédito'?'':'none'}
-$('e-f').onchange=togglePar;togglePar();
 
 window.edit = function(k, id) {
   var item = S[k].find(function(x){return x.id===id});
   if(!item) return;
   EDIT_ID[k] = id;
   if(k==='ent') {
-    $('e-d').value=item.d; $('e-t').value=item.t; $('e-c').value=item.c||'Consultas'; $('e-f').value=item.f; $('e-p').value=item.np||1; togglePar(); $('e-v').value=item.vb || item.v;
+    $('e-d').value=item.d; $('e-t').value=item.t; $('e-c').value=item.c||'Consultas'; $('e-f').value=item.f; $('e-v').value=item.vb || item.v;
     $('e-add').innerText='Salvar Edição';
   } else if(k==='sai') {
     $('s-d').value=item.d; $('s-c').value=item.c; $('s-t').value=item.t; $('s-v').value=item.v;
@@ -318,10 +313,9 @@ window.edit = function(k, id) {
 $('e-add').onclick=function(){
   var v=val('e-v');if(!(v>0)||!$('e-d').value){alert('Informe a data e um valor.');return}
   var f=$('e-f').value;
-  var np = f === 'Crédito' ? (parseInt($('e-p').value)||1) : 0;
-  var tx = f === 'Crédito' ? credTx(np) : (f === 'Débito' ? 0.0199 : 0);
+  var tx = f === 'Crédito' ? 0.0499 : (f === 'Débito' ? 0.0199 : 0);
   var net = r2(v * (1 - tx));
-  var data = {d:$('e-d').value,t:$('e-t').value||'Recebimento',c:$('e-c').value||'Consultas',f:f,v:net,vb:v,np:np};
+  var data = {d:$('e-d').value,t:$('e-t').value||'Recebimento',c:$('e-c').value||'Consultas',f:f,v:net,vb:v};
   if(EDIT_ID.ent) {
     update(ref(db, 'ent/' + EDIT_ID.ent), data);
     EDIT_ID.ent = null;
@@ -329,7 +323,7 @@ $('e-add').onclick=function(){
   } else {
     push(ref(db, 'ent'), data);
   }
-  $('e-t').value='';$('e-v').value='';$('e-p').value=1;
+  $('e-t').value='';$('e-v').value='';
 };
 
 $('s-add').onclick=function(){
@@ -391,7 +385,7 @@ function receive(id){
   var cAmt = parseFloat(custom.replace(',', '.'));
   if(isNaN(cAmt) || cAmt <= 0) { alert('Valor inválido.'); return; }
   
-  var tx = r.f === 'Crédito' ? credTx(r.n) : (r.f === 'Débito' ? 0.0199 : 0);
+  var tx = r.f === 'Crédito' ? 0.0499 : (r.f === 'Débito' ? 0.0199 : 0);
   var net = r2(cAmt * (1 - tx));
 
   var newPaid = r.paid + 1;
@@ -437,7 +431,7 @@ function render(){
       return '<tr><td>'+c+(c==='Retirada pessoal'?' <br><span class="tag" style="margin-top:4px">pessoal</span>':'')+'</td><td class="r">'+brl(t)+'</td><td style="width:30%"><div class="bar"><i style="width:'+p+'%"></i></div></td></tr>'}),'');
 
   $('e-l').innerHTML=table(['Dia/Desc','>Valor',''],E.map(function(x){
-    return '<tr><td><strong style="display:block;margin-bottom:4px">'+fd(x.d).slice(0,5)+'</strong>'+esc(x.t)+'<br><span class="tag" style="margin-top:4px;margin-right:4px">'+(x.c||'Outros')+'</span><span class="tag" style="margin-top:4px">'+x.f+(x.f==='Crédito'&&x.np>1?' '+x.np+'x':'')+'</span></td><td class="r in" style="vertical-align:middle;font-weight:600">'+brl(x.v)+'</td><td style="vertical-align:middle"><button class="x" style="color:var(--pri);margin-right:12px" onclick="edit(\'ent\',\''+x.id+'\')">✎</button><button class="x" onclick="del(\'ent\',\''+x.id+'\')">×</button></td></tr>'}),'Nenhum recebimento.');
+    return '<tr><td><strong style="display:block;margin-bottom:4px">'+fd(x.d).slice(0,5)+'</strong>'+esc(x.t)+'<br><span class="tag" style="margin-top:4px;margin-right:4px">'+(x.c||'Outros')+'</span><span class="tag" style="margin-top:4px">'+x.f+'</span></td><td class="r in" style="vertical-align:middle;font-weight:600">'+brl(x.v)+'</td><td style="vertical-align:middle"><button class="x" style="color:var(--pri);margin-right:12px" onclick="edit(\'ent\',\''+x.id+'\')">✎</button><button class="x" onclick="del(\'ent\',\''+x.id+'\')">×</button></td></tr>'}),'Nenhum recebimento.');
 
   $('s-l').innerHTML=table(['Dia/Desc','>Valor',''],C.map(function(x){
     return '<tr><td><strong style="display:block;margin-bottom:4px">'+fd(x.d).slice(0,5)+'</strong>'+esc(x.t)+'<br><span class="tag" style="margin-top:4px">'+x.c+'</span></td><td class="r out" style="vertical-align:middle;font-weight:600">'+brl(x.v)+'</td><td style="vertical-align:middle"><button class="x" style="color:var(--pri);margin-right:12px" onclick="edit(\'sai\',\''+x.id+'\')">✎</button><button class="x" onclick="del(\'sai\',\''+x.id+'\')">×</button></td></tr>'}),'Nenhum custo.');
